@@ -13,8 +13,10 @@ namespace HHY
     public class TPCharacterCtrller : MonoBehaviour
     {
         public bool RootMotion = false;
-        private Animator playerAnimator;
+        private Animator animator;
+        //public Transform camTrans;
         //调节属性
+        [Range(1f, 20f)] public float turnSpeed;    //跟随相机的转向速度
         [SerializeField] float m_MovingTurnSpeed = 360;
         [SerializeField] float m_StationaryTurnSpeed = 180;
         [SerializeField] float m_JumpPower = 12f;
@@ -43,6 +45,7 @@ namespace HHY
 
         private void Reset()
         {
+            turnSpeed = 15f;    //实验结果
             m_GroundCheckDistance = 0.3f;   //靠近Character位置往下一段的距离，用于判断是否位于地面
             m_StationaryTurnSpeed = 180;    //静止时转向速度
             m_MovingTurnSpeed = 360;        //移动时的转向速度
@@ -51,7 +54,7 @@ namespace HHY
         // Use this for initialization
         void Start()
         {
-            playerAnimator = this.GetComponent<Animator>();
+            animator = this.GetComponent<Animator>();
             m_Rigidbody = this.GetComponent<Rigidbody>();
             m_Capsule = GetComponent<CapsuleCollider>();
 
@@ -65,12 +68,17 @@ namespace HHY
         {
             if (m_IsGrounded && Time.deltaTime > 0)
             {
-                Vector3 v = (playerAnimator.deltaPosition * m_MoveSpeedMultiplier) / Time.deltaTime;
+                Vector3 v = (animator.deltaPosition * m_MoveSpeedMultiplier) / Time.deltaTime;
                 v.y = m_Rigidbody.velocity.y;
                 m_Rigidbody.velocity = v;
             }
         }
 
+        private void ExtraTurn() {
+            //旋转辅助
+            float turnSpeed = Mathf.Lerp(m_StationaryTurnSpeed, m_MovingTurnSpeed, m_ForwardAmount);//范围：[180,360]
+            transform.Rotate(0, m_TurnAmount * turnSpeed * Time.deltaTime, 0);  //y轴的旋转
+        }
         /*
          * params：
          *      move: 移动向量，描述世界坐标系下的移动方向
@@ -93,12 +101,12 @@ namespace HHY
             // control and velocity handling is different when grounded and airborne:
             if (m_IsGrounded)   //当在地面时，调用地面上的移动，否则执行空中的
             {
-                if (jump && playerAnimator.GetCurrentAnimatorStateInfo(0).IsName("Ground"))
+                if (jump && animator.GetCurrentAnimatorStateInfo(0).IsName("Ground"))
                 {
                     // jump! 根据Power属性给予一个向上的速度。
                     m_Rigidbody.velocity = new Vector3(m_Rigidbody.velocity.x, m_JumpPower, m_Rigidbody.velocity.z);
                     m_IsGrounded = false;
-                    playerAnimator.applyRootMotion = false;
+                    animator.applyRootMotion = false;
                     m_GroundCheckDistance = 0.1f;
                 }
             }
@@ -110,22 +118,55 @@ namespace HHY
                 m_GroundCheckDistance = m_Rigidbody.velocity.y < 0 ? m_OrigGroundCheckDistance : 0.01f;
             }
 
-            //旋转辅助
-            float turnSpeed = Mathf.Lerp(m_StationaryTurnSpeed, m_MovingTurnSpeed, m_ForwardAmount);//范围：[180,360]
-            transform.Rotate(0, m_TurnAmount * turnSpeed * Time.deltaTime, 0);  //y轴的旋转
-
-            UpdateAnimator(move);
+            ExtraTurn();//辅助旋转
+            UpdateMoveAnimator(move);
         }
 
-        void UpdateAnimator(Vector3 move)
+        public void Fight(Vector3 move, bool aim, bool roll) {
+            if (move.magnitude > 1f) move.Normalize();//首先标准化move向量
+            //将move从世界坐标系转换到本地坐标系
+            move = transform.InverseTransformDirection(move);
+            CheckGroundStatus();    //检测是否在地面
+            move = Vector3.ProjectOnPlane(move, m_GroundNormal);//将移动向量投影到平面上。
+            //print("local move:" + move);
+            m_TurnAmount = Mathf.Atan2(move.x, move.z); //获取偏离z轴方向的弧度值
+            m_ForwardAmount = move.z;
+            if (aim)
+            {
+                m_ForwardAmount *= 0.5f;
+            }
+            // control and velocity handling is different when grounded and airborne:
+            if (m_IsGrounded)   //当在地面时，调用地面上的移动，否则执行空中的
+            {
+                if (roll && animator.GetCurrentAnimatorStateInfo(0).IsName("Ground"))
+                {
+                    // jump! 根据Power属性给予一个向上的速度。
+                    m_Rigidbody.velocity = new Vector3(m_Rigidbody.velocity.x, m_JumpPower, m_Rigidbody.velocity.z);
+                    m_IsGrounded = false;
+                    animator.applyRootMotion = false;
+                    m_GroundCheckDistance = 0.1f;
+                }
+            }
+            else
+            {
+                //翻滚中
+                Vector3 GravityForce = (Physics.gravity * m_GravityMultiplier);
+                m_Rigidbody.AddForce(GravityForce);
+                m_GroundCheckDistance = m_Rigidbody.velocity.y < 0 ? m_OrigGroundCheckDistance : 0.01f;
+            }
+            ExtraTurn();//辅助旋转
+            UpdateFightAnimator(move);
+        }
+
+        void UpdateMoveAnimator(Vector3 move)
         {
             // update the animator parameters
-            playerAnimator.SetFloat("Forward", m_ForwardAmount, 0.1f, Time.deltaTime);  //在0.1s到达值m_ForwardAmount
-            playerAnimator.SetFloat("Turn", m_TurnAmount, 0.1f, Time.deltaTime);        //在0.1s到达值m_TurnAmount                                                               //playerAnimator.SetBool("Crouch", m_Crouching);                            
-            playerAnimator.SetBool("isGrounded", m_IsGrounded);
+            animator.SetFloat("Forward", m_ForwardAmount, 0.1f, Time.deltaTime);  //在0.1s到达值m_ForwardAmount
+            animator.SetFloat("Turn", m_TurnAmount, 0.1f, Time.deltaTime);        //在0.1s到达值m_TurnAmount                                                               //animator.SetBool("Crouch", m_Crouching);                            
+            animator.SetBool("isGrounded", m_IsGrounded);
             if (!m_IsGrounded)
             {
-                playerAnimator.SetFloat("Jump", m_Rigidbody.velocity.y);
+                animator.SetFloat("Jump", m_Rigidbody.velocity.y);
             }
 
             // calculate which leg is behind, so as to leave that leg trailing in the jump animation
@@ -133,24 +174,27 @@ namespace HHY
             // and assumes one leg passes the other at the normalized clip times of 0.0 and 0.5)
             float runCycle =
                 Mathf.Repeat(
-                    playerAnimator.GetCurrentAnimatorStateInfo(0).normalizedTime + m_RunCycleLegOffset, 1);
+                    animator.GetCurrentAnimatorStateInfo(0).normalizedTime + m_RunCycleLegOffset, 1);
             float jumpLeg = (runCycle < k_Half ? 1 : -1) * m_ForwardAmount;
             if (m_IsGrounded)
             {
-                playerAnimator.SetFloat("JumpLeg", jumpLeg);
+                animator.SetFloat("JumpLeg", jumpLeg);
             }
 
             //控制动画的播放速度
             if (m_IsGrounded && move.magnitude > float.Epsilon)
             {
-                playerAnimator.speed = m_AnimSpeedMultiplier;   
+                animator.speed = m_AnimSpeedMultiplier;   
             }
             else
             {   //空中时恢复
-                playerAnimator.speed = 1;
+                animator.speed = 1;
             }
         }
 
+        void UpdateFightAnimator(Vector3 move) {
+
+        }
         /*
          * 检测是否在地面
          */
@@ -168,17 +212,30 @@ namespace HHY
             {
                 m_GroundNormal = hitInfo.normal;    //获取碰撞表面的法向量
                 m_IsGrounded = true;
-                playerAnimator.applyRootMotion = true;
+                animator.applyRootMotion = true;
             }
             else    //不在地面时，关闭applyRootMotion
             {
                 m_IsGrounded = false;
                 m_GroundNormal = Vector3.up;
-                playerAnimator.applyRootMotion = false;
+                animator.applyRootMotion = false;
             }
         }
 
+        public void Towards(Quaternion dir) {
+            transform.rotation = Quaternion.Lerp(transform.rotation,dir, turnSpeed * Time.fixedDeltaTime);
+        }
 
+        public void SwitchMode(PlayerStatus status) {
+            switch (status) {
+                case PlayerStatus.Move:
+                    animator.SetBool("Fighting",false);
+                    break;
+                case PlayerStatus.Fight:
+                    animator.SetBool("Fighting", true);
+                    break;
+            }
+        }
     }
 }
 

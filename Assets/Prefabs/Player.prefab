@@ -1870,6 +1870,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   RootMotion: 0
+  camTrans: {fileID: 0}
+  turnSpeed: 15
   m_MovingTurnSpeed: 360
   m_StationaryTurnSpeed: 180
   m_JumpPower: 6

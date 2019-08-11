@@ -26,7 +26,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5802266273335366096}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: -2.85}
+  m_LocalPosition: {x: 0, y: 0, z: -1.87}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 5804649675907063292}
@@ -106,7 +106,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5802295034150939890}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 1.2, z: 0}
+  m_LocalPosition: {x: 0.41, y: 1.65, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children:
   - {fileID: 5805019828220422568}
@@ -161,8 +161,10 @@ MonoBehaviour:
   viewTarget: {fileID: 0}
   viewCamera: {fileID: 5802266273335366096}
   ___BasicSetup___: 0
-  heightFromGround: 1.7
-  DistFromPlayer: 2.3
+  heightFromGround: 1.65
+  sideOffset: 0.3
+  distFromPlayer_norm: 1.85
+  distFromPlayer_aim: 0
   initPitchAngle: 5
   pitchAngle_min: -70
   pitchAngle_max: 40

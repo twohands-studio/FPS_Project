@@ -21,7 +21,9 @@ namespace VRCourse.GDCamera {
          */
         public bool ___BasicSetup___;
         [Range(0.5f ,2.5f)] [SerializeField] private float heightFromGround; //离地面的高度
-        [Range(1f ,5f)] [SerializeField] private float DistFromPlayer;      //离玩家的距离
+        [Range(0f, 1f)] [SerializeField] private float sideOffset; //轴点的侧向偏移
+        [Range(1f ,5f)] [SerializeField] private float distFromPlayer_norm;     //正常情况下离玩家的距离
+        [Range(1f, 5f)] [SerializeField] private float distFromPlayer_aim;      //瞄准情况下离玩家的距离
         [Range(10f, 30f)] [SerializeField] private float initPitchAngle;    //初始的Pitch角度
         [SerializeField] private float pitchAngle_min; //最小俯仰角
         [SerializeField] private float pitchAngle_max; //最大俯仰角
@@ -49,17 +51,17 @@ namespace VRCourse.GDCamera {
         private Quaternion transTargetRot;
         private Quaternion pivotTargetRot;
 
-        //定时器:超出一定时间后自动reset角度
-        private float timer;
-        private bool reseting;
+
         private void Reset()
         {
             reverseDir = false;
             viewTarget = GameObject.FindGameObjectWithTag("Player").transform;
             viewCamera = Camera.main.gameObject;
             //Basic Setup
-            heightFromGround = 1.7f;
-            DistFromPlayer = 2.3f;
+            heightFromGround = 1.65f;
+            sideOffset = 0.4f;
+            distFromPlayer_norm = 1.85f;
+            distFromPlayer_aim = 0.8f;
             initPitchAngle = 5f;
             pitchAngle_min = -70f;
             pitchAngle_max = 40f;
@@ -83,11 +85,10 @@ namespace VRCourse.GDCamera {
         void Start()
         {
             pivot = viewCamera.transform.parent;
-            pivot.localPosition = Vector3.up * heightFromGround;
-            viewCamera.transform.localPosition = -1f * Vector3.forward * DistFromPlayer;
+            pivot.localPosition = Vector3.up * heightFromGround + Vector3.right * sideOffset;
+            viewCamera.transform.localPosition = -1f * Vector3.forward * distFromPlayer_norm;
             pivotEulers = pivot.eulerAngles;
             view_CurPitchAxis = initPitchAngle;
-            timer = 0;
         }
 
         private void Update()
@@ -120,12 +121,6 @@ namespace VRCourse.GDCamera {
             var x = Input.GetAxis("Mouse X");
             var y = Input.GetAxis("Mouse Y");
             
-            //当移动鼠标后，重置定时器
-            //if (Mathf.Abs(x) > float.Epsilon || Mathf.Abs(y) > float.Epsilon )
-            //{
-            //    reseting = false;
-            //    timer = 0f;
-            //}
             //根据x，y偏移量以及TurnSpeed控制相机的转向
             //首先处理xz平面的相机位置,也即y轴的旋转，
             view_CurYawAngle += reverseDir ? (x * cam_TurnSpeed * -1f) : (x * cam_TurnSpeed);
@@ -138,10 +133,7 @@ namespace VRCourse.GDCamera {
 
             Quaternion transTargetRot = Quaternion.Euler(0f, view_CurYawAngle, 0f);
             Quaternion pivotTargetRot = Quaternion.Euler(view_CurPitchAxis, pivotEulers.y, pivotEulers.z);
-            if (reseting) {
-                transform.rotation = Quaternion.Slerp(transform.rotation, transTargetRot, AudoTurnSmooth * Time.deltaTime);
-                pivot.localRotation = Quaternion.Slerp(pivot.localRotation, pivotTargetRot, AudoTurnSmooth * Time.deltaTime);
-            } else if(TurnSmooth > 0f)
+            if(TurnSmooth > 0f)
             {   //若有平滑处理，进行平滑处理
                 transform.rotation = Quaternion.Slerp(transform.rotation, transTargetRot, TurnSmooth * Time.deltaTime);
                 pivot.localRotation = Quaternion.Slerp(pivot.localRotation, pivotTargetRot, TurnSmooth * Time.deltaTime);
